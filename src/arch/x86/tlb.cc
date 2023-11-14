@@ -416,6 +416,51 @@ TLB::translate(const RequestPtr &req,
                 pcid = 0x000;
 
             pageAlignedVaddr = concAddrPcid(pageAlignedVaddr, pcid);
+            
+            // Is this the right place to put this?
+            // What other cases use this function?
+            // What about multi-threading?
+            // Is this conceptually invalid (OoO cases)?
+            // Is it okay to do this without looking it up first?
+            // NOTE: A lot of this code is based on code below or above
+            //       in this function itself for reference.
+
+            CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
+
+            // Phys. addr. 0 is invalid, so use that as a validity check
+            if (cr2) {
+                // Case where OS has just serviced a page fault
+                // TODO: Verify the right VPN is passed in--insert()
+                //       does its own alignment
+                // The PTE must exist --> Is this a valid assumption?
+                Process *p = tc->getProcessPtr();
+                const EmulationPageTable::Entry *pte =
+                    p->pTable->lookup(vaddr);
+                insert(pageAlignedVaddr, TlbEntry(
+                                p->pTable->pid(), pageAlignedVaddr, pte->paddr,
+                                pte->flags & EmulationPageTable::Uncacheable,
+                                pte->flags & EmulationPageTable::ReadOnly),
+                                pcid);
+
+                // Just to be safe, let's make sure this actually worked
+                // Is this even allowed? I saw this elsewhere in the
+                // translate function
+                TlbEntry *entry = lookup(pageAlignedVaddr);
+                assert(entry);
+
+                // Invalidate CR2 to clean up
+                tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
+
+                // Return saying there's no fault
+                // TODO: Is this correct?
+                return std::make_shared<GeneralProtection>(0);
+            }
+
+            //  |  Case where OS has not involved and the CR2 is invalid
+            //  |
+            //  |
+            // \|/
+            //  V
             TlbEntry *entry = lookup(pageAlignedVaddr);
 
             if (mode == BaseMMU::Read) {
