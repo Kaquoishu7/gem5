@@ -425,42 +425,192 @@ TLB::translate(const RequestPtr &req,
             // NOTE: A lot of this code is based on code below or above
             //       in this function itself for reference.
 
-            CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
+            // CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
+            // DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
+            // // cr2 = 0;
+            // // // Invalidate CR2 to clean up
+            // // tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
+            // // DPRINTF(TLB, "Reset the value from CR2: %d\n", cr2);
 
-            // Phys. addr. 0 is invalid, so use that as a validity check
-            if (cr2) {
-                // Case where OS has just serviced a page fault
-                // TODO: Verify the right VPN is passed in--insert()
-                //       does its own alignment
-                // The PTE must exist --> Is this a valid assumption?
-                Process *p = tc->getProcessPtr();
-                const EmulationPageTable::Entry *pte =
-                    p->pTable->lookup(vaddr);
-                insert(pageAlignedVaddr, TlbEntry(
-                                p->pTable->pid(), pageAlignedVaddr, pte->paddr,
-                                pte->flags & EmulationPageTable::Uncacheable,
-                                pte->flags & EmulationPageTable::ReadOnly),
-                                pcid);
+            // // Phys. addr. 0 is invalid, so use that as a validity check
+            // if (cr2) {
+            // //if (0) {
+            //     // Case where OS has just serviced a page fault
+            //     // TODO: Verify the right VPN is passed in--insert()
+            //     //       does its own alignment
+            //     // The PTE must exist --> Is this a valid assumption?
+            //     if (FullSystem) {
+            //         DPRINTF(TLB, "FS Mode\n");
+            //         Fault fault = walker->start(tc, translation, req, mode);
+            //         if (timing || fault != NoFault) {
+            //             // This gets ignored in atomic mode.
+            //             delayedResponse = true;
+            //             return fault;
+            //         }
+            //         entry = lookup(pageAlignedVaddr);
+            //         assert(entry);
+            //     }
+            //     else {
+            //         DPRINTF(TLB, "SE Mode\n");
+            //         DPRINTF(TLB, "About to get process\n");
+            //         Process *p = tc->getProcessPtr();
+            //         DPRINTF(TLB, "Got process\n");
+            //         if (p) {
+            //             DPRINTF(TLB, "Process exists.\n");
+            //             DPRINTF(TLB, "About to get EPT\n");
+            //             EmulationPageTable *ept = p->pTable;
+            //             DPRINTF(TLB, "Got EPT\n");
+            //             if (ept) {
+            //                 DPRINTF(TLB, "EPT exists.\n");
+            //                 DPRINTF(TLB, "About to get PTE\n");
+            //                 const EmulationPageTable::Entry *pte = ept->lookup(vaddr);
+            //                 DPRINTF(TLB, "Got PTE\n");
+            //                 DPRINTF(TLB, "About to insert PTE\n");
+            //                 insert(pageAlignedVaddr, TlbEntry(
+            //                                 p->pTable->pid(), pageAlignedVaddr, pte->paddr,
+            //                                 pte->flags & EmulationPageTable::Uncacheable,
+            //                                 pte->flags & EmulationPageTable::ReadOnly),
+            //                                 pcid);
+            //                 DPRINTF(TLB, "Inserted PTE\n");
 
-                // Just to be safe, let's make sure this actually worked
-                // Is this even allowed? I saw this elsewhere in the
-                // translate function
-                TlbEntry *entry = lookup(pageAlignedVaddr);
-                assert(entry);
+            //                 // Just to be safe, let's make sure this actually worked
+            //                 // Is this even allowed? I saw this elsewhere in the
+            //                 // translate function
+            //                 TlbEntry *entry = lookup(pageAlignedVaddr);
+            //                 assert(entry);
 
-                // Invalidate CR2 to clean up
-                tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
+            //                 // Invalidate CR2 to clean up
+            //                 tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
 
-                // Return saying there's no fault
-                // TODO: Is this correct?
-                return std::make_shared<GeneralProtection>(0);
-            }
+            //                 // Return saying there's no fault
+            //                 // TODO: Is this correct?
+            //                 return std::make_shared<GeneralProtection>(0);
+            //             }
+            //             else {
+            //                 DPRINTF(TLB, "EPT does not exist.\n");
+            //             }
+            //         }
+            //         else {
+            //             DPRINTF(TLB, "Process does not exist.\n");
+            //         }
+            //     }
+            // }
+
+            // ================================================================== //
+            // ================================================================== //
+            // ================================================================== //
+
+            /*
+            I really don't know exactly how this is working. The TlbEntry is the object
+            of interest, but I have no idea if this sets all 64 bits, let alone if it
+            exists already. I do see that the pagetable_walker and the pagetable files
+            are of interest. Even generic/tlb has useful information. In FS mode, the
+            walker is created and used directly upon a miss. I've borrowed the code
+            where it inserts a TLB entry for now.
+            */
+
+            // CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
+            // DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
+
+            // // Phys. addr. 0 is invalid, so use that as a validity check
+            // // CR2 should only be set in the case where this triggers a miss
+            // if (cr2) {
+            //     TlbEntry *entry = lookup(pageAlignedVaddr);
+            //     // TlbEntry *entry = insert(pageAlignedVaddr, TlbEntry(
+            //     //                     p->pTable->pid(), pageAlignedVaddr, pte->paddr,
+            //     //                     pte->flags & EmulationPageTable::Uncacheable,
+            //     //                     pte->flags & EmulationPageTable::ReadOnly),
+            //     //                     pcid);
+
+            //     // Something went wrong if CR2 is set and this doesn't exist
+            //     // assert(entry);
+            //     if (entry) {
+
+            //         entry->paddr = cr2 & 0xFFFFFFFFFFFFF000;
+
+            //         // === Borrowed from arch/x86/pagetable_walker.cc === //
+            //         // Check if PCIDE is set in CR4
+            //         CR4 cr4 = tc->readMiscRegNoEffect(misc_reg::Cr4);
+            //         if (cr4.pcide) {
+            //             CR3 cr3 = tc->readMiscRegNoEffect(misc_reg::Cr3);
+            //             insert(entry->vaddr, *entry, cr3.pcid);
+            //         }
+            //         else {
+            //             // The current PCID is always 000H if PCIDE
+            //             // is not set [sec 4.10.1 of Intel's Software
+            //             // Developer Manual]
+            //             insert(entry->vaddr, *entry, 0x000);
+            //         }
+            //         // ================================================== //
+
+            //         if (mode == BaseMMU::Read) {
+            //             stats.rdAccesses++;
+            //         } else {
+            //             stats.wrAccesses++;
+            //         }
+
+            //         DPRINTF(TLB, "CR2 Version: Entry found with paddr %#x, "
+            //                 "doing protection checks.\n", entry->paddr);
+            //         // Do paging protection checks.
+            //         bool inUser = m5Reg.cpl == 3 && !(flags & CPL0FlagBit);
+            //         CR0 cr0 = tc->readMiscRegNoEffect(misc_reg::Cr0);
+            //         bool badWrite = (!entry->writable && (inUser || cr0.wp));
+            //         if ((inUser && !entry->user) ||
+            //             (mode == BaseMMU::Write && badWrite)) {
+            //             // The page must have been present to get into the TLB in
+            //             // the first place. We'll assume the reserved bits are
+            //             // fine even though we're not checking them.
+            //             return std::make_shared<PageFault>(vaddr, true, mode, inUser,
+            //                                             false);
+            //         }
+            //         if (storeCheck && badWrite) {
+            //             // This would fault if this were a write, so return a page
+            //             // fault that reflects that happening.
+            //             return std::make_shared<PageFault>(
+            //                 vaddr, true, BaseMMU::Write, inUser, false);
+            //         }
+
+            //         Addr paddr = entry->paddr | (vaddr & mask(entry->logBytes));
+            //         DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+            //         req->setPaddr(paddr);
+            //         if (entry->uncacheable) {
+            //             req->setFlags(Request::UNCACHEABLE | Request::STRICT_ORDER);
+            //         }
+
+            //         // Invalidate CR2 to clean up
+            //         tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
+
+            //         // Final return (code below is very similar)
+            //         return finalizePhysical(req, tc, mode);
+            //     }
+            //     else {
+            //         // Invalidate CR2 no matter what--we're here because CR2 had
+            //         // junk from a previous execution.
+            //         tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
+            //     }
+            // }
 
             //  |  Case where OS has not involved and the CR2 is invalid
             //  |
             //  |
             // \|/
             //  V
+
+            // ================================================================== //
+            // ================================================================== //
+            // ================================================================== //
+
+            // ================================================================== //
+            // ================================================================== //
+            // ================================================================== //
+
+            CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
+            DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
+
+            // ================================================================== //
+            // ================================================================== //
+            // ================================================================== //
+
             TlbEntry *entry = lookup(pageAlignedVaddr);
 
             if (mode == BaseMMU::Read) {
@@ -472,20 +622,26 @@ TLB::translate(const RequestPtr &req,
                 DPRINTF(TLB, "Handling a TLB miss for "
                         "address %#x at pc %#x.\n",
                         vaddr, tc->pcState().instAddr());
-                if (mode == BaseMMU::Read) {
-                    stats.rdMisses++;
-                } else {
-                    stats.wrMisses++;
-                }
                 if (FullSystem) {
-                    Fault fault = walker->start(tc, translation, req, mode);
-                    if (timing || fault != NoFault) {
-                        // This gets ignored in atomic mode.
-                        delayedResponse = true;
-                        return fault;
+                    // Only make changes for FS mode
+                    if (!cr2) {
+                        if (mode == BaseMMU::Read) {
+                            stats.rdMisses++;
+                        } else {
+                            stats.wrMisses++;
+                        }
+                        tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
                     }
-                    entry = lookup(pageAlignedVaddr);
-                    assert(entry);
+                    // else {
+                        Fault fault = walker->start(tc, translation, req, mode);
+                        if (timing || fault != NoFault) {
+                            // This gets ignored in atomic mode.
+                            delayedResponse = true;
+                            return fault;
+                        }
+                        entry = lookup(pageAlignedVaddr);
+                        assert(entry);
+                    // }
                 } else {
                     Process *p = tc->getProcessPtr();
                     const EmulationPageTable::Entry *pte =
