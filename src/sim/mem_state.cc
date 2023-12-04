@@ -444,7 +444,7 @@ MemState::fixupFault(Addr vaddr)
         }
         return true;
     }
-
+    // don't need to handle anything here, this is just a kernel packet
     return false;
 }
 
