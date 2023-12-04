@@ -431,16 +431,18 @@ TLB::translate(const RequestPtr &req,
                 DPRINTF(TLB, "Handling a TLB miss for "
                         "address %#x at pc %#x.\n",
                         vaddr, tc->pcState().instAddr());
-                if (FullSystem) {
-                    // Only make changes for FS mode
-                    if (!cr2) {
-                        if (mode == BaseMMU::Read) {
-                            stats.rdMisses++;
-                        } else {
-                            stats.wrMisses++;
-                        }
+                // If CR2 exists, then we skip a miss
+                // CR2 always starts clean in a simulation (TODO verify)
+                if (/*1 || */!cr2) {
+                    if (mode == BaseMMU::Read) {
+                        stats.rdMisses++;
+                    } else {
+                        stats.wrMisses++;
                     }
-                    // else {
+                }
+
+                if (FullSystem) {
+                    // So far FS mode just updates the status
                     Fault fault = walker->start(tc, translation, req, mode);
                     if (timing || fault != NoFault) {
                         // This gets ignored in atomic mode.
@@ -449,23 +451,37 @@ TLB::translate(const RequestPtr &req,
                     }
                     entry = lookup(pageAlignedVaddr);
                     assert(entry);
-                    // }
                 } else {
+                    // SE mode uses CR2
                     Process *p = tc->getProcessPtr();
-                    const EmulationPageTable::Entry *pte =
-                        p->pTable->lookup(vaddr);
-                    if (!pte) {
-                        return std::make_shared<PageFault>(vaddr, true, mode,
-                                                           true, false);
-                    } else {
+                    if (0 && cr2) {
+                        // CR2 has the paddr we need
+                        // Print debug information like below
                         Addr alignedVaddr = p->pTable->pageAlign(vaddr);
-                        DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
-                                pte->paddr);
-                        entry = insert(alignedVaddr, TlbEntry(
-                                p->pTable->pid(), alignedVaddr, pte->paddr,
-                                pte->flags & EmulationPageTable::Uncacheable,
-                                pte->flags & EmulationPageTable::ReadOnly),
-                                pcid);
+                        DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr, cr2);
+
+                        // entry = insert(alignedVaddr, TlbEntry(
+                        //         /*???*/, alignedVaddr, cr2,
+                        //         /*???*/,
+                        //         /*???*/,
+                        //         pcid));
+                    }
+                    else {
+                        const EmulationPageTable::Entry *pte =
+                            p->pTable->lookup(vaddr);
+                        if (!pte) {
+                            return std::make_shared<PageFault>(vaddr, true, mode,
+                                                            true, false);
+                        } else {
+                            Addr alignedVaddr = p->pTable->pageAlign(vaddr);
+                            DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
+                                    pte->paddr);
+                            entry = insert(alignedVaddr, TlbEntry(
+                                    p->pTable->pid(), alignedVaddr, pte->paddr,
+                                    pte->flags & EmulationPageTable::Uncacheable,
+                                    pte->flags & EmulationPageTable::ReadOnly),
+                                    pcid);
+                        }
                     }
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }
