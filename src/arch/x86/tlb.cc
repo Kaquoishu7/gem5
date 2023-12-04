@@ -439,17 +439,16 @@ TLB::translate(const RequestPtr &req,
                         } else {
                             stats.wrMisses++;
                         }
-                        tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
                     }
                     // else {
-                        Fault fault = walker->start(tc, translation, req, mode);
-                        if (timing || fault != NoFault) {
-                            // This gets ignored in atomic mode.
-                            delayedResponse = true;
-                            return fault;
-                        }
-                        entry = lookup(pageAlignedVaddr);
-                        assert(entry);
+                    Fault fault = walker->start(tc, translation, req, mode);
+                    if (timing || fault != NoFault) {
+                        // This gets ignored in atomic mode.
+                        delayedResponse = true;
+                        return fault;
+                    }
+                    entry = lookup(pageAlignedVaddr);
+                    assert(entry);
                     // }
                 } else {
                     Process *p = tc->getProcessPtr();
@@ -470,6 +469,11 @@ TLB::translate(const RequestPtr &req,
                     }
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }
+            }
+
+            if (cr2) {
+                DPRINTF(TLB, "Resetting CR2.\n");
+                tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
             }
 
             DPRINTF(TLB, "Entry found with paddr %#x, "
