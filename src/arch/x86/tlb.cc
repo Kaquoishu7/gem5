@@ -145,7 +145,6 @@ void
 TLB::flushAll()
 {
     DPRINTF(TLB, "Invalidating all entries.\n");
-    tc->setMiscReg(misc_reg::Cr2, 0);
     for (unsigned i = 0; i < size; i++) {
         if (tlb[i].trieHandle) {
             trie.remove(tlb[i].trieHandle);
@@ -165,7 +164,6 @@ void
 TLB::flushNonGlobal()
 {
     DPRINTF(TLB, "Invalidating all non global entries.\n");
-    tc->setMiscReg(misc_reg::Cr2, 0);
     for (unsigned i = 0; i < size; i++) {
         if (tlb[i].trieHandle && !tlb[i].global) {
             trie.remove(tlb[i].trieHandle);

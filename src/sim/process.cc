@@ -339,10 +339,6 @@ Process::allocateMem(Addr vaddr, int64_t size, bool clobber)
     const Addr paddr = seWorkload->allocPhysPages(npages);
     const Addr pages_size = npages * page_size;
 
-    // Write to cr2 here
-    // TODO fix this
-    tc->setMiscReg(misc_reg::Cr2, paddr);
-
     pTable->map(page_addr, paddr, pages_size,
                 clobber ? EmulationPageTable::Clobber :
                           EmulationPageTable::MappingFlags(0));

@@ -173,6 +173,19 @@ EmuLinux::pageFault(ThreadContext *tc)
                 tc->readMiscReg(misc_reg::Cr2),
                 is[5], is[4], is[3], is[2], is[1], is[0]);
    }
+    // Write paddr to cr2
+    // This writes the full address for now
+    const Addr vaddr = tc->readMiscReg(misc_reg::Cr2);
+
+    const auto pTable = p->pTable;
+
+    // If we need the page addr rather than exact
+    const auto page_size = pTable->pageSize();
+    const Addr page_addr = roundDown(vaddr, page_size);
+
+    Addr paddr;
+    const bool mapped = pTable->translate(vaddr, paddr);
+    if (mapped) tc->setMiscReg(misc_reg::Cr2, paddr);
 }
 
 } // namespace X86ISA
