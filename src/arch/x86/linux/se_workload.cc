@@ -179,13 +179,12 @@ EmuLinux::pageFault(ThreadContext *tc)
 
     const auto pTable = p->pTable;
 
-    // If we need the page addr rather than exact
-    const auto page_size = pTable->pageSize();
-    const Addr page_addr = roundDown(vaddr, page_size);
-
-    Addr paddr;
-    const bool mapped = pTable->translate(vaddr, paddr);
-    if (mapped) tc->setMiscReg(misc_reg::Cr2, paddr);
+    const EmulationPageTable::Entry *pte = pTable->lookup(vaddr);
+    
+    if(pte){
+        const Addr paddr = pte->paddr;
+        tc->setMiscReg(misc_reg::Cr2, paddr);
+    }
 }
 
 } // namespace X86ISA
