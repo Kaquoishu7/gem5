@@ -11,7 +11,7 @@ all: $(TEST_FILES).sh
 	echo '#!/bin/bash\nm5 resetstats\n./$^\nm5 dumpstats' > $@
 
 %.elf: %.cpp
-	gcc -Wall $^ -o $@
+	g++ -Wall $^ -o $@
 
 %.bin: %.elf
 	echo "TODO!"

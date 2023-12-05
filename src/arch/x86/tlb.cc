@@ -433,7 +433,8 @@ TLB::translate(const RequestPtr &req,
                         vaddr, tc->pcState().instAddr());
                 // If CR2 exists, then we skip a miss
                 // CR2 always starts clean in a simulation (TODO verify)
-                if (/*1 || */!cr2) {
+                if (1 || !cr2) {
+                // if (!cr2) {
                     if (mode == BaseMMU::Read) {
                         stats.rdMisses++;
                     } else {
