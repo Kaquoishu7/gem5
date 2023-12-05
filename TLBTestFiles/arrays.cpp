@@ -5,7 +5,7 @@ Create an array in dynamic memory. Read and write some data for page faults.
 #define SIZE 2048
 
 int main () {
-    int* my_array = new int(2048);
+    int* my_array = new int(SIZE);
     for (int i = 0; i < SIZE; ++i) {
         my_array[i] = i;
     }

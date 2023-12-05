@@ -419,6 +419,7 @@ TLB::translate(const RequestPtr &req,
 
             CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
             DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
+            warn("TLB Message - Read the value from CR2: 0x%x\n", cr2);
 
             TlbEntry *entry = lookup(pageAlignedVaddr);
 
@@ -433,8 +434,8 @@ TLB::translate(const RequestPtr &req,
                         vaddr, tc->pcState().instAddr());
                 // If CR2 exists, then we skip a miss
                 // CR2 always starts clean in a simulation (TODO verify)
-                if (1 || !cr2) {
-                // if (!cr2) {
+                // if (1 || !cr2) {
+                if (!cr2) {
                     if (mode == BaseMMU::Read) {
                         stats.rdMisses++;
                     } else {
@@ -490,6 +491,7 @@ TLB::translate(const RequestPtr &req,
 
             if (cr2) {
                 DPRINTF(TLB, "Resetting CR2.\n");
+                warn("TLB Message - Resetting CR2 back to 0x0\n.");
                 tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
             }
 
