@@ -175,14 +175,16 @@ EmuLinux::pageFault(ThreadContext *tc)
    }
     // Write paddr to cr2
     // This writes the full address for now
+    
     const Addr vaddr = tc->readMiscReg(misc_reg::Cr2);
-
+    warn("Looking up address for %#x", vaddr);
+    
     const auto pTable = p->pTable;
-
     const EmulationPageTable::Entry *pte = pTable->lookup(vaddr);
     
     if(pte){
         const Addr paddr = pte->paddr;
+        warn("Adding to CR2 address %#x", paddr);
         tc->setMiscReg(misc_reg::Cr2, paddr);
     }
 }
