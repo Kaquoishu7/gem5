@@ -419,7 +419,9 @@ TLB::translate(const RequestPtr &req,
 
             CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
             DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
-            warn("TLB Message - Read the value from CR2: 0x%x\n", cr2);
+
+            // Trigger warning as well (nice for the demo)
+            if (cr2) warn("TLB Message - Read the value from CR2: 0x%x\n", cr2);
 
             TlbEntry *entry = lookup(pageAlignedVaddr);
 
@@ -433,9 +435,9 @@ TLB::translate(const RequestPtr &req,
                         "address %#x at pc %#x.\n",
                         vaddr, tc->pcState().instAddr());
                 // If CR2 exists, then we skip a miss
-                // CR2 always starts clean in a simulation (TODO verify)
-                // if (1 || !cr2) {
-                if (!cr2) {
+                // CR2 always starts clean in a simulation
+                // if (true) { // NOTE: Toggle this line for original gem5 behavior
+                if (!cr2) { // NOTE: Toggle this line for modified gem5 behavior
                     if (mode == BaseMMU::Read) {
                         stats.rdMisses++;
                     } else {
@@ -444,7 +446,7 @@ TLB::translate(const RequestPtr &req,
                 }
 
                 if (FullSystem) {
-                    // So far FS mode just updates the status
+                    // FS mode skips using CR2's value itself
                     Fault fault = walker->start(tc, translation, req, mode);
                     if (timing || fault != NoFault) {
                         // This gets ignored in atomic mode.
@@ -454,19 +456,26 @@ TLB::translate(const RequestPtr &req,
                     entry = lookup(pageAlignedVaddr);
                     assert(entry);
                 } else {
-                    // SE mode uses CR2
+                    // SE mode updates based on CR2
                     Process *p = tc->getProcessPtr();
-                    if (0 && cr2) {
+                    // if (false) { // NOTE: Toggle this line for original gem5 behavior
+                    if (cr2) {  // NOTE: Toggle this line for modified gem5 behavior
                         // CR2 has the paddr we need
                         // Print debug information like below
                         Addr alignedVaddr = p->pTable->pageAlign(vaddr);
                         DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr, cr2);
 
-                        // entry = insert(alignedVaddr, TlbEntry(
-                        //         /*???*/, alignedVaddr, cr2,
-                        //         /*???*/,
-                        //         /*???*/,
-                        //         pcid));
+                        // If CR2 is set, we know the PTE exists
+                        // While we do a look-up again in simulation,
+                        // this does not affect latency thanks to SE mode
+                        const EmulationPageTable::Entry *pte =
+                            p->pTable->lookup(vaddr);
+
+                        entry = insert(alignedVaddr, TlbEntry(
+                                p->pTable->pid(), alignedVaddr, cr2,
+                                pte->flags & EmulationPageTable::Uncacheable,
+                                pte->flags & EmulationPageTable::ReadOnly),
+                                pcid);
                     }
                     else {
                         const EmulationPageTable::Entry *pte =
