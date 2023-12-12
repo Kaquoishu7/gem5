@@ -9,6 +9,7 @@ from gem5.components.processors.cpu_types import CPUTypes
 from gem5.resources.resource import Resource
 from gem5.resources.resource import CustomResource
 from gem5.resources.resource import CustomDiskImageResource
+from gem5.resources.resource import DiskImageResource
 from gem5.simulate.simulator import Simulator
 from gem5.simulate.exit_event import ExitEvent
 from gem5.resources.workload import Workload
@@ -53,7 +54,7 @@ processor = SimpleSwitchableProcessor(
 
 # Here we tell the KVM CPU (the starting CPU) not to use perf.
 for proc in processor.start:
-    proc.core.usePerf = False
+    proc.core.usePerf = True
 
 # Here we setup the board. The X86Board allows for Full-System X86 simulations.
 board = X86Board(
@@ -69,6 +70,14 @@ board = X86Board(
 # then, again, call `m5 exit` to terminate the simulation. After simulation
 # has ended you may inspect `m5out/system.pc.com_1.device` to see the echo
 # output.
+# command = "m5 exit;" \
+#         + "echo 'This is running on Timing CPU cores.';" \
+#         + "m5 resetstats" \
+#         + "./simple.elf" \
+#         + "m5 dumpstats" \
+#         + "sleep 1;" \
+#         + "m5 exit;"
+
 command = "m5 exit;" \
         + "echo 'This is running on Timing CPU cores.';" \
         + "sleep 1;" \
@@ -80,10 +89,12 @@ command = "m5 exit;" \
 # "x86-ubuntu-18.04-img", a file to be executed as a script after booting the
 # system.
 board.set_kernel_disk_workload(
-    # kernel=Resource("x86-linux-kernel-5.4.49"),
-    kernel = CustomResource("../linux-582/vmlinux"),
-    disk_image=Resource("x86-ubuntu-18.04-img"),
-    # disk_image=CustomDiskImageResource("../workspace/mydebian.img"),
+    kernel=Resource("x86-linux-kernel-5.4.49"),
+    # kernel = CustomResource("../linux-582/vmlinux"),
+    # disk_image=Resource("x86-ubuntu-18.04-img"),
+    # disk_image=CustomDiskImageResource("../x86-ubuntu/x86-ubuntu-image/x86-ubuntu"),
+    # disk_image=CustomDiskImageResource("../x86-ubuntu/x86-ubuntu-original-image/x86-ubuntu-original"),
+    disk_image=DiskImageResource("../x86-ubuntu.img"),
     readfile_contents=command,
 )
 
