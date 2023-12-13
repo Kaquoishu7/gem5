@@ -443,8 +443,8 @@ TLB::translate(const RequestPtr &req,
                     // Use CR2 only if a page fault had occurred
                     // Those page faults should also always set CR2
                     // We save a TLB miss so account for it below
-                    if (true) { // Toggle this line
-                    // if (!pageFaultOccurred || flushOccurred || !cr2) { // Toggle this line
+                    // if (true) { // Toggle this line
+                    if (!pageFaultOccurred || flushOccurred || !cr2) { // Toggle this line
                         if (mode == BaseMMU::Read) {
                             stats.rdMisses++;
                         } else {
