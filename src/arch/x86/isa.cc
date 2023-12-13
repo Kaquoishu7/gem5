@@ -186,7 +186,7 @@ copyMiscRegs(ThreadContext *src, ThreadContext *dest)
     dest->setMiscReg(misc_reg::Tsc, src->readMiscReg(misc_reg::Tsc));
 
     dest->getMMUPtr()->flushAll();
-    dest->setMiscReg(misc_reg::Cr2, 0);
+    // dest->setMiscReg(misc_reg::Cr2, 0);
 }
 
 void
@@ -303,7 +303,7 @@ ISA::setMiscReg(RegIndex idx, RegVal val)
             }
             if (toggled.pg) {
                 tc->getMMUPtr()->flushAll();
-                tc->setMiscReg(misc_reg::Cr2, 0);
+                // tc->setMiscReg(misc_reg::Cr2, 0);
             }
             //This must always be 1.
             newCR0.et = 1;
@@ -319,14 +319,14 @@ ISA::setMiscReg(RegIndex idx, RegVal val)
         break;
       case misc_reg::Cr3:
         static_cast<MMU *>(tc->getMMUPtr())->flushNonGlobal();
-        tc->setMiscReg(misc_reg::Cr2, 0);
+        // tc->setMiscReg(misc_reg::Cr2, 0);
         break;
       case misc_reg::Cr4:
         {
             CR4 toggled = regVal[idx] ^ val;
             if (toggled.pae || toggled.pse || toggled.pge) {
                 tc->getMMUPtr()->flushAll();
-                tc->setMiscReg(misc_reg::Cr2, 0);
+                // tc->setMiscReg(misc_reg::Cr2, 0);
             }
         }
         break;

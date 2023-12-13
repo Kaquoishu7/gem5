@@ -443,6 +443,8 @@ TLB::translate(const RequestPtr &req,
                     } else {
                         stats.wrMisses++;
                     }
+                }else{
+                    warn("CR2 value used to avoid miss");
                 }
 
                 if (FullSystem) {
