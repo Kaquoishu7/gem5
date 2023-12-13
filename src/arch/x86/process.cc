@@ -370,7 +370,7 @@ X86_64Process::initState()
             cr0.pe = 1; // We're definitely in protected mode.
             tc->setMiscReg(misc_reg::Cr0, cr0);
 
-            CR2 cr2 = 0;
+            CR0 cr2 = 0;
             tc->setMiscReg(misc_reg::Cr2, cr2);
 
             CR3 cr3 = dynamic_cast<ArchPageTable *>(pTable)->basePtr();

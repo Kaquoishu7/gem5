@@ -168,21 +168,6 @@ PageFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
                   inst->disassemble(tc->pcState().instAddr(),
                       &loader::debugSymbolTable));
         }
-        // Write paddr to cr2
-        // This writes the full address for now
-        Process *p = tc->getProcessPtr();
-        
-        const Addr vaddr = addr;
-        warn("Looking up address for %#x", vaddr);
-
-        const auto pTable = p->pTable;
-        const EmulationPageTable::Entry *pte = pTable->lookup(vaddr);
-        
-        if(pte){
-            const Addr paddr = pte->paddr;
-            warn("Adding to CR2 address %#x", paddr);
-            tc->setMiscReg(misc_reg::Cr2, paddr);
-        }
     }
 }
 

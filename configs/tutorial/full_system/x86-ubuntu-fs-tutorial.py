@@ -78,6 +78,12 @@ board = X86Board(
 #         + "sleep 1;" \
 #         + "m5 exit;"
 
+# command = "root=/dev/hda2 console=ttyS0" \
+#         + "m5 exit;" \
+#         + "echo 'This is running on Timing CPU cores.';" \
+#         + "sleep 1;" \
+#         + "m5 exit;"
+
 command = "m5 exit;" \
         + "echo 'This is running on Timing CPU cores.';" \
         + "sleep 1;" \
@@ -91,10 +97,10 @@ command = "m5 exit;" \
 board.set_kernel_disk_workload(
     kernel=Resource("x86-linux-kernel-5.4.49"),
     # kernel = CustomResource("../linux-582/vmlinux"),
-    # disk_image=Resource("x86-ubuntu-18.04-img"),
+    disk_image=Resource("x86-ubuntu-18.04-img"),
     # disk_image=CustomDiskImageResource("../x86-ubuntu/x86-ubuntu-image/x86-ubuntu"),
     # disk_image=CustomDiskImageResource("../x86-ubuntu/x86-ubuntu-original-image/x86-ubuntu-original"),
-    disk_image=DiskImageResource("../x86-ubuntu.img"),
+    # disk_image=DiskImageResource("../x86-ubuntu.img"),
     readfile_contents=command,
 )
 

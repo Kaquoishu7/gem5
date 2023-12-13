@@ -144,6 +144,8 @@ TLB::lookup(Addr va, bool update_lru)
 void
 TLB::flushAll()
 {
+    flushOccurred = true;
+    
     DPRINTF(TLB, "Invalidating all entries.\n");
     for (unsigned i = 0; i < size; i++) {
         if (tlb[i].trieHandle) {
@@ -163,6 +165,8 @@ TLB::setConfigAddress(uint32_t addr)
 void
 TLB::flushNonGlobal()
 {
+    flushOccurred = true;
+
     DPRINTF(TLB, "Invalidating all non global entries.\n");
     for (unsigned i = 0; i < size; i++) {
         if (tlb[i].trieHandle && !tlb[i].global) {
@@ -176,6 +180,9 @@ TLB::flushNonGlobal()
 void
 TLB::demapPage(Addr va, uint64_t asn)
 {
+    // This is called right before a page fault
+    pageFaultOccurred = true;
+
     TlbEntry *entry = trie.lookup(va);
     if (entry) {
         trie.remove(entry->trieHandle);
@@ -416,14 +423,11 @@ TLB::translate(const RequestPtr &req,
                 pcid = 0x000;
 
             pageAlignedVaddr = concAddrPcid(pageAlignedVaddr, pcid);
-
-            CR2 cr2 = tc->readMiscRegNoEffect(misc_reg::Cr2);
-            DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
-
-            // Trigger warning as well (nice for the demo)
-            if (cr2) warn("TLB Message - Read the value from CR2: 0x%x\n", cr2);
-
             TlbEntry *entry = lookup(pageAlignedVaddr);
+
+            // Read CR2
+            CR2 cr2 = tc->readMiscReg(misc_reg::Cr2);
+            DPRINTF(TLB, "Read the value from CR2: 0x%x\n", cr2);
 
             if (mode == BaseMMU::Read) {
                 stats.rdAccesses++;
@@ -431,22 +435,37 @@ TLB::translate(const RequestPtr &req,
                 stats.wrAccesses++;
             }
             if (!entry) {
+                // Default behavior
                 DPRINTF(TLB, "Handling a TLB miss for "
                         "address %#x at pc %#x.\n",
                         vaddr, tc->pcState().instAddr());
-                // If CR2 exists, then we skip a miss
-                // CR2 always starts clean in a simulation
-                // if (true) { // NOTE: Toggle this line for original gem5 behavior
-                if (!cr2) { // NOTE: Toggle this line for modified gem5 behavior
-                    if (mode == BaseMMU::Read) {
-                        stats.rdMisses++;
-                    } else {
-                        stats.wrMisses++;
-                    }
+                if (mode == BaseMMU::Read) {
+                    stats.rdMisses++;
+                } else {
+                    stats.wrMisses++;
                 }
-
                 if (FullSystem) {
-                    // FS mode skips using CR2's value itself
+                    // FS Mode
+                    DPRINTF(TLB, "Handling a TLB miss for "
+                            "address %#x at pc %#x.\n",
+                            vaddr, tc->pcState().instAddr());
+
+                    // Use CR2 only if a page fault had occurred
+                    // Those page faults should also always set CR2
+                    // We save a TLB miss so account for it below
+                    // if (false) { // Toggle this line
+                    if (pageFaultOccurred && !flushOccurred && cr2) { // Toggle this line
+                        if (mode == BaseMMU::Read) {
+                            stats.rdMisses--;
+                        } else {
+                            stats.wrMisses--;
+                        }
+                    }
+
+                    // Always reset
+                    pageFaultOccurred = false;
+                    flushOccurred = false;
+
                     Fault fault = walker->start(tc, translation, req, mode);
                     if (timing || fault != NoFault) {
                         // This gets ignored in atomic mode.
@@ -456,52 +475,24 @@ TLB::translate(const RequestPtr &req,
                     entry = lookup(pageAlignedVaddr);
                     assert(entry);
                 } else {
-                    // SE mode updates based on CR2
                     Process *p = tc->getProcessPtr();
-                    // if (false) { // NOTE: Toggle this line for original gem5 behavior
-                    if (cr2) {  // NOTE: Toggle this line for modified gem5 behavior
-                        // CR2 has the paddr we need
-                        // Print debug information like below
+                    const EmulationPageTable::Entry *pte =
+                        p->pTable->lookup(vaddr);
+                    if (!pte) {
+                        return std::make_shared<PageFault>(vaddr, true, mode,
+                                                           true, false);
+                    } else {
                         Addr alignedVaddr = p->pTable->pageAlign(vaddr);
-                        DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr, cr2);
-
-                        // If CR2 is set, we know the PTE exists
-                        // While we do a look-up again in simulation,
-                        // this does not affect latency thanks to SE mode
-                        const EmulationPageTable::Entry *pte =
-                            p->pTable->lookup(vaddr);
-
+                        DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
+                                pte->paddr);
                         entry = insert(alignedVaddr, TlbEntry(
-                                p->pTable->pid(), alignedVaddr, cr2,
+                                p->pTable->pid(), alignedVaddr, pte->paddr,
                                 pte->flags & EmulationPageTable::Uncacheable,
                                 pte->flags & EmulationPageTable::ReadOnly),
                                 pcid);
                     }
-                    else {
-                        const EmulationPageTable::Entry *pte =
-                            p->pTable->lookup(vaddr);
-                        if (!pte) {
-                            return std::make_shared<PageFault>(vaddr, true, mode,
-                                                            true, false);
-                        } else {
-                            Addr alignedVaddr = p->pTable->pageAlign(vaddr);
-                            DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
-                                    pte->paddr);
-                            entry = insert(alignedVaddr, TlbEntry(
-                                    p->pTable->pid(), alignedVaddr, pte->paddr,
-                                    pte->flags & EmulationPageTable::Uncacheable,
-                                    pte->flags & EmulationPageTable::ReadOnly),
-                                    pcid);
-                        }
-                    }
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }
-            }
-
-            if (cr2) {
-                DPRINTF(TLB, "Resetting CR2.\n");
-                warn("TLB Message - Resetting CR2 back to 0x0\n.");
-                tc->setMiscRegNoEffect(misc_reg::Cr2, RegVal(0));
             }
 
             DPRINTF(TLB, "Entry found with paddr %#x, "

@@ -59,6 +59,11 @@ namespace X86ISA
 
     class TLB : public BaseTLB
     {
+      private:
+        // Global variables to gather accurate FS data
+        bool flushOccurred = false;
+        bool pageFaultOccurred = false;
+      
       protected:
         friend class Walker;
 
