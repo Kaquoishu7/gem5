@@ -435,30 +435,31 @@ TLB::translate(const RequestPtr &req,
                 stats.wrAccesses++;
             }
             if (!entry) {
-                // Default behavior
-                DPRINTF(TLB, "Handling a TLB miss for "
-                        "address %#x at pc %#x.\n",
-                        vaddr, tc->pcState().instAddr());
-                if (mode == BaseMMU::Read) {
-                    stats.rdMisses++;
-                } else {
-                    stats.wrMisses++;
-                }
                 if (FullSystem) {
                     // FS Mode
                     DPRINTF(TLB, "Handling a TLB miss for "
-                            "address %#x at pc %#x.\n",
-                            vaddr, tc->pcState().instAddr());
-
+                        "address %#x at pc %#x.\n",
+                        vaddr, tc->pcState().instAddr());
                     // Use CR2 only if a page fault had occurred
                     // Those page faults should also always set CR2
                     // We save a TLB miss so account for it below
-                    // if (false) { // Toggle this line
-                    if (pageFaultOccurred && !flushOccurred && cr2) { // Toggle this line
+                    if (true) { // Toggle this line
+                    // if (!pageFaultOccurred || flushOccurred || !cr2) { // Toggle this line
                         if (mode == BaseMMU::Read) {
-                            stats.rdMisses--;
+                            stats.rdMisses++;
                         } else {
-                            stats.wrMisses--;
+                            stats.wrMisses++;
+                        }
+                    }
+                    else {
+                        if (mode == BaseMMU::Read) {
+                            static uint64_t saves_r = 0;
+                            ++saves_r;
+                            warn("For reads, we saved %i misses!\n", saves_r);
+                        } else {
+                            static uint64_t saves_w = 0;
+                            ++saves_w;
+                            warn("For writes, we saved %i misses!\n", saves_w);
                         }
                     }
 
@@ -475,6 +476,14 @@ TLB::translate(const RequestPtr &req,
                     entry = lookup(pageAlignedVaddr);
                     assert(entry);
                 } else {
+                    DPRINTF(TLB, "Handling a TLB miss for "
+                        "address %#x at pc %#x.\n",
+                        vaddr, tc->pcState().instAddr());
+                    if (mode == BaseMMU::Read) {
+                        stats.rdMisses++;
+                    } else {
+                        stats.wrMisses++;
+                    }
                     Process *p = tc->getProcessPtr();
                     const EmulationPageTable::Entry *pte =
                         p->pTable->lookup(vaddr);
